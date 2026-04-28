@@ -1,43 +1,78 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="5">
-    <title>{{ vehicle_id }} Readings</title>
-    <style>
-        .problem-banner {
-            background-color: #ffe5e5;
-            border: 1px solid #b30000;
-            color: #7a0000;
-            padding: 10px;
-            margin: 10px 0;
-            font-weight: bold;
-        }
-    </style>
-</head>
-<body>
-    <h1>Vehicle {{ vehicle_id }}</h1>
-    <p><a href="{% url 'dashboard' %}">Back to all vehicles</a></p>
-    <p>Latest 100 telemetry readings (temperature and SoC).</p>
-    {% if is_stale %}
-        <div class="problem-banner">
-            [PROBLEM] {{ stale_message }}
-        </div>
-    {% endif %}
+{% extends "telemetry/base.html" %}
 
-    {% if readings %}
-        <ul>
+{% block title %}{{ vehicle_id }} Readings{% endblock %}
+
+{% block head_extra %}
+<meta http-equiv="refresh" content="5">
+<style>
+    .problem-banner {
+        background: #fef3f2;
+        border: 1px solid #fecdca;
+        color: #912018;
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        font-weight: 600;
+    }
+
+    .reading-row {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr;
+        gap: 10px;
+        border-bottom: 1px solid var(--border);
+        padding: 8px 0;
+    }
+
+    .reading-header {
+        color: var(--muted);
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .readings-window {
+        max-height: 420px;
+        overflow-y: auto;
+        margin-top: 8px;
+        padding-right: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="topbar">
+    <div>
+        <h1>Vehicle {{ vehicle_id }}</h1>
+        <p class="muted">Latest 100 telemetry readings.</p>
+    </div>
+    <a href="{% url 'dashboard' %}">Back to Dashboard</a>
+</div>
+
+{% if is_stale %}
+    <div class="problem-banner">
+        [PROBLEM] {{ stale_message }}
+    </div>
+{% endif %}
+
+{% if readings %}
+    <section class="card">
+        <div class="reading-row reading-header">
+            <div>Timestamp (UTC)</div>
+            <div>Battery Temp</div>
+            <div>Battery SoC</div>
+        </div>
+        <div class="readings-window">
             {% for reading in readings %}
-                <li>
-                    {{ reading.timestamp_utc }}
-                    - Temp: {% firstof reading.battery_temperature_c reading.value_celsius "N/A" %} C
-                    - SoC: {{ reading.battery_soc_percent|default:"N/A" }} %
-                </li>
+                <div class="reading-row">
+                    <div>{{ reading.timestamp_utc }}</div>
+                    <div>{% firstof reading.battery_temperature_c reading.value_celsius "N/A" %} C</div>
+                    <div>{{ reading.battery_soc_percent|default:"N/A" }} %</div>
+                </div>
             {% endfor %}
-        </ul>
-    {% else %}
-        <p>No readings found for this vehicle.</p>
-    {% endif %}
-</body>
-</html>
+        </div>
+    </section>
+{% else %}
+    <section class="card">
+        <p class="muted">No readings found for this vehicle.</p>
+    </section>
+{% endif %}
+{% endblock %}

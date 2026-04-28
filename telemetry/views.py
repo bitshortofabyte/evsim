@@ -85,6 +85,9 @@ def vehicle_detail(request, vehicle_id):
         if "client" in locals():
             client.close()
 
+    # Ensure the newest readings are always first, even if mixed/legacy timestamps exist.
+    readings.sort(key=lambda r: r.get("timestamp_utc", ""), reverse=True)
+
     is_stale = False
     stale_message = None
     if readings:

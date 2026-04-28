@@ -1,27 +1,30 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Tools</title>
-</head>
-<body>
-    <h1>Admin Tools</h1>
-    <p><a href="{% url 'dashboard' %}">Back to dashboard</a></p>
+{% extends "telemetry/base.html" %}
 
+{% block title %}Admin Tools{% endblock %}
+
+{% block content %}
+<div class="topbar">
+    <div>
+        <h1>Admin Tools</h1>
+        <p class="muted">Utility actions for EV telemetry data.</p>
+    </div>
+    <a href="{% url 'dashboard' %}">Back to Dashboard</a>
+</div>
+
+<section class="card stack">
     {% if admin_message %}
-        <p>{{ admin_message }}</p>
+        <p><span class="badge-danger">Result</span> {{ admin_message }}</p>
     {% endif %}
 
     {% if mongo_error %}
-        <p>MongoDB error: {{ mongo_error }}</p>
+        <p><span class="badge-danger">MongoDB Error</span> {{ mongo_error }}</p>
     {% else %}
-        <p>Current telemetry record count: {{ total_documents }}</p>
+        <p>Current telemetry record count: <strong>{{ total_documents }}</strong></p>
     {% endif %}
 
     <form method="post">
         {% csrf_token %}
-        <button type="submit">Clear all telemetry records</button>
+        <button class="btn btn-danger" type="submit">Clear all telemetry records</button>
     </form>
-</body>
-</html>
+</section>
+{% endblock %}
