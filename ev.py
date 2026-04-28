@@ -12,7 +12,7 @@ import paho.mqtt.client as mqtt
 
 BROKER_HOST = "localhost"
 BROKER_PORT = 1883
-MQTT_TOPIC = "ev/sensors/battery_temperature"
+MQTT_TOPIC = "ev/sensors/telemetry"
 PUBLISH_INTERVAL_SECONDS = 5
 CLIENT_ID_PREFIX = "ev-simulator-battery-temp"
 
@@ -30,6 +30,22 @@ class BatteryTemperatureSensor:
         return round(self.temperature_celsius, 2)
 
 
+class BatterySocSensor:
+    """Simple SoC model: slowly discharges while driving."""
+
+    def __init__(self) -> None:
+        # Start each EV at a random SoC between 50% and 80%.
+        self.soc_percent = random.uniform(50.0, 80.0)
+        # Give each EV its own discharge profile between light and medium.
+        self.base_discharge_per_tick = random.uniform(0.08, 0.22)
+
+    def read(self) -> float:
+        # Add slight jitter around the base discharge rate.
+        discharge = max(0.03, self.base_discharge_per_tick + random.uniform(-0.03, 0.03))
+        self.soc_percent = max(0.0, min(100.0, self.soc_percent - discharge))
+        return round(self.soc_percent, 2)
+
+
 def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties=None) -> None:
     if reason_code == 0:
         print(f"Connected to MQTT broker at {BROKER_HOST}:{BROKER_PORT}")
@@ -37,11 +53,11 @@ def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties=Non
         print(f"MQTT connection failed with code {reason_code}")
 
 
-def build_payload(vehicle_id: str, temperature_celsius: float) -> str:
+def build_payload(vehicle_id: str, temperature_celsius: float, soc_percent: float) -> str:
     payload = {
         "vehicle_id": vehicle_id,
-        "sensor": "battery_temperature",
-        "value_celsius": temperature_celsius,
+        "battery_temperature_c": temperature_celsius,
+        "battery_soc_percent": soc_percent,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
     }
     return json.dumps(payload)
@@ -64,7 +80,8 @@ def main() -> None:
     mqtt_client_id = f"{CLIENT_ID_PREFIX}-{uuid.uuid4().hex[:10]}"
 
     running = True
-    sensor = BatteryTemperatureSensor()
+    temperature_sensor = BatteryTemperatureSensor()
+    soc_sensor = BatterySocSensor()
 
     def shutdown_handler(signum, frame) -> None:
         nonlocal running
@@ -74,7 +91,10 @@ def main() -> None:
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
 
-    print(f"Starting simulator for vehicle_id={vehicle_id}")
+    print(
+        f"Starting simulator for vehicle_id={vehicle_id} "
+        f"(initial_soc={soc_sensor.soc_percent:.2f}%)"
+    )
 
     client = mqtt.Client(client_id=mqtt_client_id, protocol=mqtt.MQTTv5)
     client.on_connect = on_connect
@@ -83,8 +103,9 @@ def main() -> None:
 
     try:
         while running:
-            temperature = sensor.read()
-            payload = build_payload(vehicle_id, temperature)
+            temperature = temperature_sensor.read()
+            soc_percent = soc_sensor.read()
+            payload = build_payload(vehicle_id, temperature, soc_percent)
             result = client.publish(MQTT_TOPIC, payload=payload, qos=1)
 
             if result.rc == mqtt.MQTT_ERR_SUCCESS:

@@ -5,18 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="refresh" content="5">
     <title>EV Telemetry Dashboard</title>
+    <style>
+        @keyframes staleBlink {
+            0% { background-color: #ffe5e5; }
+            50% { background-color: #ff8c8c; }
+            100% { background-color: #ffe5e5; }
+        }
+
+        .vehicle-row {
+            padding: 6px;
+            margin: 4px 0;
+        }
+
+        .problem-indicator {
+            color: #b30000;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .stale-blink {
+            animation: staleBlink 1s infinite;
+        }
+    </style>
 </head>
 <body>
     <h1>EV Telemetry Dashboard</h1>
-    <p>Latest battery temperature reading per vehicle.</p>
+    <p>Latest battery temperature and SoC per vehicle.</p>
 
     {% if vehicles %}
         <ul>
             {% for vehicle in vehicles %}
-                <li>
+                <li
+                    class="vehicle-row{% if vehicle.is_stale %} stale-candidate{% endif %}"
+                    data-vehicle-id="{{ vehicle.vehicle_id }}"
+                    data-is-stale="{% if vehicle.is_stale %}true{% else %}false{% endif %}"
+                >
+                    <span class="problem-indicator" style="display:none;">[PROBLEM]</span>
                     <a href="{% url 'vehicle_detail' vehicle.vehicle_id %}">{{ vehicle.vehicle_id }}</a>
-                    - {{ vehicle.latest_temp_celsius }} C
+                    - Temp: {{ vehicle.latest_temp_celsius }} C
+                    - SoC: {{ vehicle.latest_soc_percent|default:"N/A" }} %
                     at {{ vehicle.latest_timestamp }}
+                    <button class="dismiss-btn" style="display:none; margin-left:8px;">Dismiss</button>
                 </li>
             {% endfor %}
         </ul>
@@ -25,5 +54,46 @@
     {% endif %}
 
     <p><a href="{% url 'admin_tools' %}">admin</a></p>
+    <script>
+        const storageKey = "dismissedVehicleProblems";
+        const dismissed = JSON.parse(localStorage.getItem(storageKey) || "{}");
+
+        function persistDismissed() {
+            localStorage.setItem(storageKey, JSON.stringify(dismissed));
+        }
+
+        document.querySelectorAll(".vehicle-row").forEach((row) => {
+            const vehicleId = row.dataset.vehicleId;
+            const isStale = row.dataset.isStale === "true";
+            const indicator = row.querySelector(".problem-indicator");
+            const dismissBtn = row.querySelector(".dismiss-btn");
+
+            if (!isStale) {
+                delete dismissed[vehicleId];
+                indicator.style.display = "none";
+                dismissBtn.style.display = "none";
+                row.classList.remove("stale-blink");
+                return;
+            }
+
+            indicator.style.display = "inline";
+            if (dismissed[vehicleId]) {
+                row.classList.remove("stale-blink");
+                dismissBtn.style.display = "none";
+            } else {
+                row.classList.add("stale-blink");
+                dismissBtn.style.display = "inline";
+            }
+
+            dismissBtn.addEventListener("click", () => {
+                dismissed[vehicleId] = true;
+                persistDismissed();
+                row.classList.remove("stale-blink");
+                dismissBtn.style.display = "none";
+            });
+        });
+
+        persistDismissed();
+    </script>
 </body>
 </html>

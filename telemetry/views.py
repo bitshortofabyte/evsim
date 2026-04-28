@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from pymongo import DESCENDING, MongoClient
 from pymongo.errors import PyMongoError
 
@@ -6,9 +8,16 @@ from django.http import HttpResponseServerError
 from django.urls import reverse
 from django.shortcuts import redirect, render
 
+STALE_THRESHOLD_SECONDS = 10
+
 
 def get_collection():
-    mongo_client = MongoClient(settings.MONGODB_URI)
+    mongo_client = MongoClient(
+        settings.MONGODB_URI,
+        serverSelectionTimeoutMS=1500,
+        connectTimeoutMS=1500,
+        socketTimeoutMS=1500,
+    )
     db = mongo_client[settings.MONGODB_DATABASE]
     return mongo_client, db[settings.MONGODB_COLLECTION]
 
@@ -22,7 +31,10 @@ def dashboard(request):
                 "$group": {
                     "_id": "$vehicle_id",
                     "latest_timestamp": {"$first": "$timestamp_utc"},
-                    "latest_temp_celsius": {"$first": "$value_celsius"},
+                    "latest_temp_celsius": {
+                        "$first": {"$ifNull": ["$battery_temperature_c", "$value_celsius"]}
+                    },
+                    "latest_soc_percent": {"$first": "$battery_soc_percent"},
                 }
             },
             {
@@ -31,6 +43,7 @@ def dashboard(request):
                     "vehicle_id": "$_id",
                     "latest_timestamp": 1,
                     "latest_temp_celsius": 1,
+                    "latest_soc_percent": 1,
                 }
             },
             {"$sort": {"vehicle_id": 1}},
@@ -41,6 +54,18 @@ def dashboard(request):
     finally:
         if "client" in locals():
             client.close()
+
+    now_utc = datetime.now(timezone.utc)
+    for vehicle in vehicles:
+        latest_timestamp = vehicle.get("latest_timestamp")
+        vehicle["is_stale"] = False
+        if not latest_timestamp:
+            continue
+        try:
+            seen_at = datetime.fromisoformat(latest_timestamp)
+            vehicle["is_stale"] = (now_utc - seen_at).total_seconds() > STALE_THRESHOLD_SECONDS
+        except ValueError:
+            vehicle["is_stale"] = False
 
     context = {"vehicles": vehicles}
     return render(request, "telemetry/dashboard.html", context)
@@ -60,7 +85,29 @@ def vehicle_detail(request, vehicle_id):
         if "client" in locals():
             client.close()
 
-    context = {"vehicle_id": vehicle_id, "readings": readings}
+    is_stale = False
+    stale_message = None
+    if readings:
+        latest_timestamp = readings[0].get("timestamp_utc")
+        if latest_timestamp:
+            try:
+                seen_at = datetime.fromisoformat(latest_timestamp)
+                seconds_since_last_seen = int((datetime.now(timezone.utc) - seen_at).total_seconds())
+                if seconds_since_last_seen > STALE_THRESHOLD_SECONDS:
+                    is_stale = True
+                    stale_message = (
+                        f"Vehicle {vehicle_id} has not reported in {seconds_since_last_seen} seconds. "
+                        "Telemetry may be delayed or the EV simulator may be offline."
+                    )
+            except ValueError:
+                pass
+
+    context = {
+        "vehicle_id": vehicle_id,
+        "readings": readings,
+        "is_stale": is_stale,
+        "stale_message": stale_message,
+    }
     return render(request, "telemetry/vehicle_detail.html", context)
 
 

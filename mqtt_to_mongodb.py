@@ -9,7 +9,7 @@ from pymongo.errors import PyMongoError
 
 BROKER_HOST = "localhost"
 BROKER_PORT = 1883
-MQTT_TOPIC = "ev/sensors/battery_temperature"
+MQTT_TOPIC = "ev/sensors/telemetry"
 MQTT_CLIENT_ID = "ev-mongodb-ingestor"
 
 MONGODB_URI = "mongodb://localhost:27017"

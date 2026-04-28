@@ -5,16 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="refresh" content="5">
     <title>{{ vehicle_id }} Readings</title>
+    <style>
+        .problem-banner {
+            background-color: #ffe5e5;
+            border: 1px solid #b30000;
+            color: #7a0000;
+            padding: 10px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
     <h1>Vehicle {{ vehicle_id }}</h1>
     <p><a href="{% url 'dashboard' %}">Back to all vehicles</a></p>
+    <p>Latest 100 telemetry readings (temperature and SoC).</p>
+    {% if is_stale %}
+        <div class="problem-banner">
+            [PROBLEM] {{ stale_message }}
+        </div>
+    {% endif %}
 
     {% if readings %}
         <ul>
             {% for reading in readings %}
                 <li>
-                    {{ reading.timestamp_utc }} - {{ reading.value_celsius }} C
+                    {{ reading.timestamp_utc }}
+                    - Temp: {% firstof reading.battery_temperature_c reading.value_celsius "N/A" %} C
+                    - SoC: {{ reading.battery_soc_percent|default:"N/A" }} %
                 </li>
             {% endfor %}
         </ul>
