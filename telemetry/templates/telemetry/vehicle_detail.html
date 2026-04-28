@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="5">
+    <title>{{ vehicle_id }} Readings</title>
+</head>
+<body>
+    <h1>Vehicle {{ vehicle_id }}</h1>
+    <p><a href="{% url 'dashboard' %}">Back to all vehicles</a></p>
+
+    {% if readings %}
+        <ul>
+            {% for reading in readings %}
+                <li>
+                    {{ reading.timestamp_utc }} - {{ reading.value_celsius }} C
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No readings found for this vehicle.</p>
+    {% endif %}
+</body>
+</html>

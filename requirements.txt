@@ -1,0 +1,6 @@
+asgiref==3.11.1
+Django==6.0.4
+dnspython==2.8.0
+paho-mqtt==2.1.0
+pymongo==4.17.0
+sqlparse==0.5.5

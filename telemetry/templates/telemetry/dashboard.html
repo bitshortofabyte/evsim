@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="5">
+    <title>EV Telemetry Dashboard</title>
+</head>
+<body>
+    <h1>EV Telemetry Dashboard</h1>
+    <p>Latest battery temperature reading per vehicle.</p>
+
+    {% if vehicles %}
+        <ul>
+            {% for vehicle in vehicles %}
+                <li>
+                    <a href="{% url 'vehicle_detail' vehicle.vehicle_id %}">{{ vehicle.vehicle_id }}</a>
+                    - {{ vehicle.latest_temp_celsius }} C
+                    at {{ vehicle.latest_timestamp }}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No telemetry data found yet.</p>
+    {% endif %}
+
+    <p><a href="{% url 'admin_tools' %}">admin</a></p>
+</body>
+</html>
